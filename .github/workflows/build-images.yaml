@@ -1,0 +1,96 @@
+name: Build images
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build-base:
+    name: "GHCR: Build and push base"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      version: ${{ steps.tags.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: workflow
+
+      - name: Get version and check if exists in GHCR
+        id: tags
+        run: |
+          version=$(docker run --rm workflow sh -c 'busybox 2>&1 | head -1' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          echo "version=$version" >> $GITHUB_OUTPUT
+          if docker manifest inspect ghcr.io/its-me/workflow:v$version > /dev/null 2>&1; then
+            echo "exist=true" >> $GITHUB_OUTPUT
+          else
+            echo "exist=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Push image to GHCR
+        if: steps.tags.outputs.exist != 'true'
+        run: |
+          docker tag workflow ghcr.io/its-me/workflow:v${{ steps.tags.outputs.version }}
+          docker tag workflow ghcr.io/its-me/workflow:d${{ github.run_number }}
+          docker tag workflow ghcr.io/its-me/workflow:latest
+          docker push ghcr.io/its-me/workflow:v${{ steps.tags.outputs.version }}
+          docker push ghcr.io/its-me/workflow:d${{ github.run_number }}
+          docker push ghcr.io/its-me/workflow:latest
+
+  build-successor:
+    name: "GHCR: Build and push successor"
+    needs: build-base
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.successor
+          load: true
+          tags: workflow-successor
+
+      - name: Check if image exists in GHCR
+        id: exist
+        run: |
+          if docker manifest inspect ghcr.io/its-me/workflow:successor-v${{ needs.build-base.outputs.version }} > /dev/null 2>&1; then
+            echo "exist=true" >> $GITHUB_OUTPUT
+          else
+            echo "exist=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Push image to GHCR
+        if: steps.exist.outputs.exist != 'true'
+        run: |
+          docker tag workflow-successor ghcr.io/its-me/workflow:successor-v${{ needs.build-base.outputs.version }}
+          docker tag workflow-successor ghcr.io/its-me/workflow:successor-d${{ github.run_number }}
+          docker tag workflow-successor ghcr.io/its-me/workflow:successor
+          docker push ghcr.io/its-me/workflow:successor-v${{ needs.build-base.outputs.version }}
+          docker push ghcr.io/its-me/workflow:successor-d${{ github.run_number }}
+          docker push ghcr.io/its-me/workflow:successor
