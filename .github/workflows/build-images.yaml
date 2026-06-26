@@ -8,6 +8,9 @@ jobs:
   build-base:
     name: "GHCR: Build and push base"
     runs-on: ubuntu-latest
+    environment:
+      name: base
+      url: https://ghcr.io/its-me/workflow:base
     permissions:
       contents: read
       packages: write
@@ -30,6 +33,9 @@ jobs:
     name: "GHCR: Build and push successor"
     needs: build-base
     runs-on: ubuntu-latest
+    environment:
+      name: successor
+      url: https://ghcr.io/its-me/workflow:successor
     permissions:
       contents: read
       packages: write
