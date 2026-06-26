@@ -31,6 +31,13 @@ jobs:
           build-args: COMMIT_SHA=${{ github.sha }}
           tags: ghcr.io/its-me/workflow:base
 
+      - name: Tag semver
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          docker buildx imagetools create \
+            --tag ghcr.io/its-me/workflow:base-${GITHUB_REF_NAME#v} \
+            ghcr.io/its-me/workflow:base
+
   build-successor:
     name: "GHCR: Build and push successor"
     needs: build-base
@@ -57,3 +64,10 @@ jobs:
           push: true
           build-args: COMMIT_SHA=${{ github.sha }}
           tags: ghcr.io/its-me/workflow:successor
+
+      - name: Tag semver
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          docker buildx imagetools create \
+            --tag ghcr.io/its-me/workflow:successor-${GITHUB_REF_NAME#v} \
+            ghcr.io/its-me/workflow:successor
