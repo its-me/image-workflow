@@ -57,6 +57,7 @@ jobs:
           curl -fsSL -X PUT "https://quay.io/api/v1/repository/${QUAY_NAMESPACE%%+*}/$REPOSITORY" \
             -H "Authorization: Bearer $QUAY_TOKEN" \
             -H "Content-Type: application/json" \
+            -H "X-Requested-With: XMLHttpRequest" \
             --data-binary "$(jq -n \
               --rawfile description quay.md \
               '{description: $description}')"
