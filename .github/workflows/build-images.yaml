@@ -6,7 +6,7 @@ on:
 
 jobs:
   build-base:
-    name: Build base
+    name: Build base and store in GHCR
     runs-on: ubuntu-latest
     environment:
       name: GHCR
@@ -121,7 +121,7 @@ jobs:
           done
 
   build-successor:
-    name: Build successor
+    name: Build successor and store in GHCR
     needs: build-base
     runs-on: ubuntu-latest
     environment:
