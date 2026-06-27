@@ -1,0 +1,1 @@
+Minimal busybox-based template image for GitHub Actions workflow experiments

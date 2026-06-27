@@ -1,0 +1,61 @@
+name: Update descriptions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - description.txt
+      - overview.md
+  workflow_dispatch:
+
+jobs:
+  update-hub:
+    name: Update Docker Hub description
+    runs-on: ubuntu-slim
+    environment:
+      name: Docker Hub
+      url: https://hub.docker.com/r/1tsme/workflow
+    env:
+      REPOSITORY: workflow
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Update description
+        env:
+          HUB_USERNAME: ${{ secrets.HUB_USERNAME }}
+          HUB_TOKEN: ${{ secrets.HUB_TOKEN }}
+        run: |
+          token=$(curl -fsSL -X POST "https://hub.docker.com/v2/users/login" \
+            -H "Content-Type: application/json" \
+            -d "{\"username\":\"$HUB_USERNAME\",\"password\":\"$HUB_TOKEN\"}" \
+            | jq -r '.token')
+          curl -fsSL -X PATCH "https://hub.docker.com/v2/repositories/$HUB_USERNAME/$REPOSITORY/" \
+            -H "Authorization: Bearer $token" \
+            -H "Content-Type: application/json" \
+            --data-binary "$(jq -n \
+              --rawfile description description.txt \
+              --rawfile full_description overview.md \
+              '{description: $description, full_description: $full_description}')"
+
+  update-quay:
+    name: Update Quay.io description
+    runs-on: ubuntu-slim
+    environment:
+      name: Quay.io
+      url: https://quay.io/repository/itsme/workflow
+    env:
+      REPOSITORY: workflow
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Update description
+        env:
+          QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
+          QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
+        run: |
+          curl -fsSL -X PUT "https://quay.io/api/v1/repository/${QUAY_NAMESPACE%%+*}/$REPOSITORY" \
+            -H "Authorization: Bearer $QUAY_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data-binary "$(jq -n \
+              --rawfile description description.txt \
+              '{description: $description}')"
