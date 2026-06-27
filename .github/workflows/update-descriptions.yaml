@@ -3,9 +3,9 @@ name: Update descriptions
 on:
   push:
     branches: [main]
-    paths:
-      - hub.md
-      - quay.md
+    # paths:
+    #   - hub.md
+    #   - quay.md
   workflow_dispatch:
 
 jobs:
@@ -22,14 +22,10 @@ jobs:
           HUB_USERNAME: ${{ secrets.HUB_USERNAME }}
           HUB_TOKEN: ${{ secrets.HUB_TOKEN }}
         run: |
-          token=$(curl -fsSL -X POST "https://hub.docker.com/v2/users/login" \
-            -H "Content-Type: application/json" \
-            -d "{\"username\":\"$HUB_USERNAME\",\"password\":\"$HUB_TOKEN\"}" \
-            | jq -r '.token')
           short_description=$(sed -n '1s/^<!-- \(.*\) -->$/\1/p' hub.md)
           full_description=$(tail -n +2 hub.md)
           curl -fsSL -X PATCH "https://hub.docker.com/v2/repositories/$HUB_USERNAME/$REPOSITORY/" \
-            -H "Authorization: Bearer $token" \
+            -H "Authorization: Bearer $HUB_TOKEN" \
             -H "Content-Type: application/json" \
             --data-binary "$(jq -n \
               --arg description "$short_description" \
