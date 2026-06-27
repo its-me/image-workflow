@@ -12,9 +12,6 @@ jobs:
   update-hub:
     name: Update Docker Hub description
     runs-on: ubuntu-slim
-    environment:
-      name: Docker Hub
-      url: https://hub.docker.com/r/1tsme/workflow
     env:
       REPOSITORY: workflow
     steps:
@@ -40,9 +37,6 @@ jobs:
   update-quay:
     name: Update Quay.io description
     runs-on: ubuntu-slim
-    environment:
-      name: Quay.io
-      url: https://quay.io/repository/itsme/workflow
     env:
       REPOSITORY: workflow
     steps:
