@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: Docker Hub
-      url: https://hub.docker.com/r/${{ secrets.HUB_USERNAME }}/workflow
+      url: https://hub.docker.com/r/its-me/workflow
     permissions:
       packages: read
     env:
@@ -80,7 +80,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: Quay.io
-      url: https://quay.io/repository/${{ secrets.QUAY_USERNAME }}/workflow
+      url: https://quay.io/repository/its-me/workflow
     permissions:
       packages: read
     env:
@@ -155,7 +155,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: Docker Hub
-      url: https://hub.docker.com/r/${{ secrets.HUB_USERNAME }}/workflow
+      url: https://hub.docker.com/r/its-me/workflow
     permissions:
       packages: read
     env:
@@ -191,7 +191,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: Quay.io
-      url: https://quay.io/repository/${{ secrets.QUAY_USERNAME }}/workflow
+      url: https://quay.io/repository/its-me/workflow
     permissions:
       packages: read
     env:
