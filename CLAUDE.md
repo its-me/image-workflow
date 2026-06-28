@@ -22,7 +22,7 @@ Builds and deploys images on every push (except changes to `HUB.md`, `QUAY.md`, 
 
 Tags pushed: always `base` / `successor`; additionally `base-<semver>` / `successor-<semver>` on version tag pushes (leading `v` stripped).
 
-Images carry `org.opencontainers.image.revision` label with the commit SHA.
+Images carry `org.opencontainers.image.version` label with the commit SHA.
 
 ### update-descriptions
 
