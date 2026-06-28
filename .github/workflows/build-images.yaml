@@ -79,7 +79,7 @@ jobs:
   merge-base:
     name: Store base in GHCR
     needs: build-base
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     environment:
       name: GHCR
       url: https://ghcr.io/its-me/workflow
@@ -125,7 +125,7 @@ jobs:
   push-base-hub:
     name: Deploy base to Docker Hub
     needs: merge-base
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     environment:
       name: Docker Hub
       url: https://hub.docker.com/r/1tsme/workflow
@@ -156,7 +156,7 @@ jobs:
   push-base-quay:
     name: Deploy base to Quay.io
     needs: merge-base
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     environment:
       name: Quay.io
       url: https://quay.io/repository/itsme/workflow
@@ -254,7 +254,7 @@ jobs:
   merge-successor:
     name: Store successor in GHCR
     needs: build-successor
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     environment:
       name: GHCR
       url: https://ghcr.io/its-me/workflow
@@ -300,7 +300,7 @@ jobs:
   push-successor-hub:
     name: Deploy successor to Docker Hub
     needs: merge-successor
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     environment:
       name: Docker Hub
       url: https://hub.docker.com/r/1tsme/workflow
@@ -331,7 +331,7 @@ jobs:
   push-successor-quay:
     name: Deploy successor to Quay.io
     needs: merge-successor
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     environment:
       name: Quay.io
       url: https://quay.io/repository/itsme/workflow
