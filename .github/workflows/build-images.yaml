@@ -14,7 +14,71 @@ env:
 
 jobs:
   build-base:
-    name: Build base and store in GHCR
+    name: Build base (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - { platform: linux/amd64,   runner: ubuntu-latest,    qemu: false }
+          - { platform: linux/arm64,   runner: ubuntu-24.04-arm, qemu: false }
+          - { platform: linux/arm/v7,  runner: ubuntu-24.04-arm, qemu: true  }
+          - { platform: linux/arm/v6,  runner: ubuntu-24.04-arm, qemu: true  }
+          - { platform: linux/386,     runner: ubuntu-latest,    qemu: true  }
+          - { platform: linux/ppc64le, runner: ubuntu-latest,    qemu: true  }
+          - { platform: linux/s390x,   runner: ubuntu-latest,    qemu: true  }
+          - { platform: linux/riscv64, runner: ubuntu-latest,    qemu: true  }
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up QEMU
+        if: matrix.qemu
+        uses: docker/setup-qemu-action@v4
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.base
+          platforms: ${{ matrix.platform }}
+          build-args: COMMIT_SHA=${{ github.sha }}
+          outputs: type=image,name=ghcr.io/its-me/${{ env.REPOSITORY }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Prepare
+        run: |
+          platform=${{ matrix.platform }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: base-digest-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge-base:
+    name: Store base in GHCR
+    needs: build-base
     runs-on: ubuntu-latest
     environment:
       name: GHCR
@@ -25,7 +89,12 @@ jobs:
     outputs:
       tags: ${{ steps.tags.outputs.list }}
     steps:
-      - uses: actions/checkout@v7
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: base-digest-*
+          merge-multiple: true
 
       - name: Log in to GHCR
         uses: docker/login-action@v4
@@ -33,6 +102,8 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v4
 
       - name: Resolve tags
         id: tags
@@ -43,25 +114,17 @@ jobs:
           fi
           echo "list=$tags" >> $GITHUB_OUTPUT
 
-      - name: Build and push
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: Dockerfile.base
-          push: true
-          build-args: COMMIT_SHA=${{ github.sha }}
-          tags: ghcr.io/its-me/workflow:base
-
-      - name: Create semver tag
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Create manifest
         run: |
-          docker buildx imagetools create \
-            --tag ghcr.io/its-me/workflow:base-${GITHUB_REF_NAME#v} \
-            ghcr.io/its-me/workflow:base
+          for tag in ${{ steps.tags.outputs.list }}; do
+            docker buildx imagetools create \
+              --tag ghcr.io/its-me/$REPOSITORY:$tag \
+              $(printf "ghcr.io/its-me/$REPOSITORY@sha256:%s " $(ls /tmp/digests))
+          done
 
   push-base-hub:
     name: Deploy base to Docker Hub
-    needs: build-base
+    needs: merge-base
     runs-on: ubuntu-latest
     environment:
       name: Docker Hub
@@ -84,15 +147,15 @@ jobs:
 
       - name: Deploy
         run: |
-          for tag in ${{ needs.build-base.outputs.tags }}; do
+          for tag in ${{ needs.merge-base.outputs.tags }}; do
             docker buildx imagetools create \
               --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:$tag \
-              ghcr.io/its-me/workflow:$tag
+              ghcr.io/its-me/$REPOSITORY:$tag
           done
 
   push-base-quay:
     name: Deploy base to Quay.io
-    needs: build-base
+    needs: merge-base
     runs-on: ubuntu-latest
     environment:
       name: Quay.io
@@ -118,15 +181,79 @@ jobs:
         env:
           QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
         run: |
-          for tag in ${{ needs.build-base.outputs.tags }}; do
+          for tag in ${{ needs.merge-base.outputs.tags }}; do
             docker buildx imagetools create \
               --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:$tag \
-              ghcr.io/its-me/workflow:$tag
+              ghcr.io/its-me/$REPOSITORY:$tag
           done
 
   build-successor:
-    name: Build successor and store in GHCR
-    needs: build-base
+    name: Build successor (${{ matrix.platform }})
+    needs: merge-base
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - { platform: linux/amd64,   runner: ubuntu-latest,    qemu: false }
+          - { platform: linux/arm64,   runner: ubuntu-24.04-arm, qemu: false }
+          - { platform: linux/arm/v7,  runner: ubuntu-24.04-arm, qemu: true  }
+          - { platform: linux/arm/v6,  runner: ubuntu-24.04-arm, qemu: true  }
+          - { platform: linux/386,     runner: ubuntu-latest,    qemu: true  }
+          - { platform: linux/ppc64le, runner: ubuntu-latest,    qemu: true  }
+          - { platform: linux/s390x,   runner: ubuntu-latest,    qemu: true  }
+          - { platform: linux/riscv64, runner: ubuntu-latest,    qemu: true  }
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up QEMU
+        if: matrix.qemu
+        uses: docker/setup-qemu-action@v4
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.successor
+          platforms: ${{ matrix.platform }}
+          build-args: COMMIT_SHA=${{ github.sha }}
+          outputs: type=image,name=ghcr.io/its-me/${{ env.REPOSITORY }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Prepare
+        run: |
+          platform=${{ matrix.platform }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: successor-digest-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge-successor:
+    name: Store successor in GHCR
+    needs: build-successor
     runs-on: ubuntu-latest
     environment:
       name: GHCR
@@ -137,7 +264,12 @@ jobs:
     outputs:
       tags: ${{ steps.tags.outputs.list }}
     steps:
-      - uses: actions/checkout@v7
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: successor-digest-*
+          merge-multiple: true
 
       - name: Log in to GHCR
         uses: docker/login-action@v4
@@ -145,6 +277,8 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v4
 
       - name: Resolve tags
         id: tags
@@ -155,25 +289,17 @@ jobs:
           fi
           echo "list=$tags" >> $GITHUB_OUTPUT
 
-      - name: Build and push
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: Dockerfile.successor
-          push: true
-          build-args: COMMIT_SHA=${{ github.sha }}
-          tags: ghcr.io/its-me/workflow:successor
-
-      - name: Create semver tag
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Create manifest
         run: |
-          docker buildx imagetools create \
-            --tag ghcr.io/its-me/workflow:successor-${GITHUB_REF_NAME#v} \
-            ghcr.io/its-me/workflow:successor
+          for tag in ${{ steps.tags.outputs.list }}; do
+            docker buildx imagetools create \
+              --tag ghcr.io/its-me/$REPOSITORY:$tag \
+              $(printf "ghcr.io/its-me/$REPOSITORY@sha256:%s " $(ls /tmp/digests))
+          done
 
   push-successor-hub:
     name: Deploy successor to Docker Hub
-    needs: build-successor
+    needs: merge-successor
     runs-on: ubuntu-latest
     environment:
       name: Docker Hub
@@ -196,15 +322,15 @@ jobs:
 
       - name: Deploy
         run: |
-          for tag in ${{ needs.build-successor.outputs.tags }}; do
+          for tag in ${{ needs.merge-successor.outputs.tags }}; do
             docker buildx imagetools create \
               --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:$tag \
-              ghcr.io/its-me/workflow:$tag
+              ghcr.io/its-me/$REPOSITORY:$tag
           done
 
   push-successor-quay:
     name: Deploy successor to Quay.io
-    needs: build-successor
+    needs: merge-successor
     runs-on: ubuntu-latest
     environment:
       name: Quay.io
@@ -230,8 +356,8 @@ jobs:
         env:
           QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
         run: |
-          for tag in ${{ needs.build-successor.outputs.tags }}; do
+          for tag in ${{ needs.merge-successor.outputs.tags }}; do
             docker buildx imagetools create \
               --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:$tag \
-              ghcr.io/its-me/workflow:$tag
+              ghcr.io/its-me/$REPOSITORY:$tag
           done
