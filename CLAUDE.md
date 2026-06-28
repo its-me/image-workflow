@@ -54,9 +54,9 @@ Triggers on pushes to `main` that touch `HUB.md` or `QUAY.md`, and on manual dis
 
 | Secret | Used by | Purpose |
 |---|---|---|
-| `HUB_USERNAME` | both workflows | Docker Hub username (`1tsme`) |
+| `HUB_USERNAME` | both workflows | Docker Hub username |
 | `HUB_TOKEN` | build-images | Docker Hub access token for registry push |
 | `HUB_PASSWORD` | update-descriptions | Docker Hub account password for REST API login |
-| `QUAY_USERNAME` | build-images | Quay.io robot account username (`itsme+github`) |
+| `QUAY_USERNAME` | build-images | Quay.io robot account username |
 | `QUAY_TOKEN` | build-images | Quay.io robot account token for registry push |
 | `QUAY_API_TOKEN` | update-descriptions | Quay.io OAuth application token for REST API |
