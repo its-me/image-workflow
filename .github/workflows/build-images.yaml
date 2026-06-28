@@ -85,9 +85,6 @@ jobs:
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     needs: build-base
     runs-on: ubuntu-latest
-    environment:
-      name: GHCR
-      url: https://ghcr.io/its-me/workflow
     permissions:
       contents: read
       packages: write
@@ -131,9 +128,6 @@ jobs:
     name: Deploy base to Docker Hub
     needs: assemble-base
     runs-on: ubuntu-slim
-    environment:
-      name: Docker Hub
-      url: https://hub.docker.com/r/1tsme/workflow
     permissions:
       packages: read
     steps:
@@ -162,9 +156,6 @@ jobs:
     name: Deploy base to Quay.io
     needs: assemble-base
     runs-on: ubuntu-slim
-    environment:
-      name: Quay.io
-      url: https://quay.io/repository/itsme/workflow
     permissions:
       packages: read
     steps:
@@ -265,9 +256,6 @@ jobs:
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     needs: build-successor
     runs-on: ubuntu-latest
-    environment:
-      name: GHCR
-      url: https://ghcr.io/its-me/workflow
     permissions:
       contents: read
       packages: write
@@ -311,9 +299,6 @@ jobs:
     name: Deploy successor to Docker Hub
     needs: assemble-successor
     runs-on: ubuntu-slim
-    environment:
-      name: Docker Hub
-      url: https://hub.docker.com/r/1tsme/workflow
     permissions:
       packages: read
     steps:
@@ -342,9 +327,6 @@ jobs:
     name: Deploy successor to Quay.io
     needs: assemble-successor
     runs-on: ubuntu-slim
-    environment:
-      name: Quay.io
-      url: https://quay.io/repository/itsme/workflow
     permissions:
       packages: read
     steps:
