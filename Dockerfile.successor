@@ -3,3 +3,8 @@ FROM ghcr.io/its-me/workflow:base
 ARG COMMIT_SHA
 LABEL org.opencontainers.image.revision=$COMMIT_SHA
 LABEL org.opencontainers.image.source=https://github.com/its-me/image-workflow
+LABEL org.opencontainers.image.title="workflow-successor"
+LABEL org.opencontainers.image.description="Extends workflow-base, demonstrating image inheritance"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.authors="Sergey Kanafyev <sergeykanafyev@gmail.com>"
+LABEL org.opencontainers.image.base.name="ghcr.io/its-me/workflow:base"

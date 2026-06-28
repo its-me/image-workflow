@@ -3,3 +3,7 @@ FROM busybox:latest
 ARG COMMIT_SHA
 LABEL org.opencontainers.image.revision=$COMMIT_SHA
 LABEL org.opencontainers.image.source=https://github.com/its-me/image-workflow
+LABEL org.opencontainers.image.title="workflow-base"
+LABEL org.opencontainers.image.description="Minimal image built from busybox"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.authors="Sergey Kanafyev <sergeykanafyev@gmail.com>"
