@@ -8,12 +8,13 @@ on:
     #   - quay.md
   workflow_dispatch:
 
+env:
+  REPOSITORY: workflow
+
 jobs:
   update-hub:
     name: Update Docker Hub description
     runs-on: ubuntu-slim
-    env:
-      REPOSITORY: workflow
     steps:
       - uses: actions/checkout@v7
 
@@ -39,8 +40,6 @@ jobs:
   update-quay:
     name: Update Quay.io description
     runs-on: ubuntu-slim
-    env:
-      REPOSITORY: workflow
     steps:
       - uses: actions/checkout@v7
 

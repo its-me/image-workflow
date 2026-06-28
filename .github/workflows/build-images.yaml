@@ -4,6 +4,9 @@ on:
   push:
   workflow_dispatch:
 
+env:
+  REPOSITORY: workflow
+
 jobs:
   build-base:
     name: Build base and store in GHCR
@@ -60,8 +63,6 @@ jobs:
       url: https://hub.docker.com/r/1tsme/workflow
     permissions:
       packages: read
-    env:
-      REPOSITORY: workflow
     steps:
       - name: Log in to GHCR
         uses: docker/login-action@v4
@@ -93,8 +94,6 @@ jobs:
       url: https://quay.io/repository/itsme/workflow
     permissions:
       packages: read
-    env:
-      REPOSITORY: workflow
     steps:
       - name: Log in to GHCR
         uses: docker/login-action@v4
@@ -176,8 +175,6 @@ jobs:
       url: https://hub.docker.com/r/1tsme/workflow
     permissions:
       packages: read
-    env:
-      REPOSITORY: workflow
     steps:
       - name: Log in to GHCR
         uses: docker/login-action@v4
@@ -209,8 +206,6 @@ jobs:
       url: https://quay.io/repository/itsme/workflow
     permissions:
       packages: read
-    env:
-      REPOSITORY: workflow
     steps:
       - name: Log in to GHCR
         uses: docker/login-action@v4
