@@ -1,0 +1,31 @@
+name: Check for new release
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: Check and tag new release
+    runs-on: ubuntu-slim
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-tags: true
+
+      - name: Check and tag new release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          latest=$(gh api repos/its-me/dummy.releases/releases/latest --jq '.tag_name | ltrimstr("v")')
+          if ! git ls-remote --exit-code origin "refs/tags/v$latest"; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -a "v$latest" -m "v$latest"
+            git push origin "v$latest"
+            gh workflow run build-and-deploy.yaml -f tag="v$latest"
+          fi

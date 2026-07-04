@@ -2,22 +2,49 @@ name: Build and deploy
 
 on:
   push:
-    paths-ignore:
-      - HUB.md
-      - QUAY.md
-      - README.md
-      - LICENSE
-  pull_request:
-  schedule:
-    - cron: '0 0 * * *'
+    tags:
+      - 'v*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (e.g. v1.2.3)'
+        required: true
 
 env:
   REPOSITORY: workflow
 
 jobs:
+  resolve-version:
+    name: Resolve version
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+      is_latest: ${{ steps.version.outputs.is_latest }}
+    steps:
+      - name: Resolve version
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            tag="${{ inputs.tag }}"
+            version="${tag#v}"
+          fi
+          highest=$(gh api "repos/${{ github.repository }}/tags" --paginate --jq '.[].name | select(test("^v[0-9]")) | ltrimstr("v")' | sort -V | tail -1)
+          if [ -z "$highest" ] || [ "$(printf '%s\n%s\n' "$highest" "$version" | sort -V | tail -1)" = "$version" ]; then
+            echo "is_latest=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_latest=false" >> $GITHUB_OUTPUT
+          fi
+          echo "value=$version" >> $GITHUB_OUTPUT
+
   build-base:
     name: Build base (${{ matrix.platform }})
+    needs: resolve-version
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -56,17 +83,15 @@ jobs:
           context: .
           file: Dockerfile.base
           platforms: ${{ matrix.platform }}
-          build-args: COMMIT_SHA=${{ github.sha }}
-          outputs: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && format('type=image,name=ghcr.io/its-me/{0},push-by-digest=true,name-canonical=true,push=true', env.REPOSITORY) || 'type=cacheonly' }}
+          build-args: VERSION=${{ needs.resolve-version.outputs.version }}
+          outputs: type=image,name=ghcr.io/its-me/${{ env.REPOSITORY }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Prepare
-        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         run: |
           platform=${{ matrix.platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
 
       - name: Export digest
-        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         run: |
           mkdir -p /tmp/digests
           touch "/tmp/digests/${DIGEST#sha256:}"
@@ -74,7 +99,6 @@ jobs:
           DIGEST: ${{ steps.build.outputs.digest }}
 
       - name: Upload digest
-        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v7
         with:
           name: base-digest-${{ env.PLATFORM_PAIR }}
@@ -84,8 +108,7 @@ jobs:
 
   assemble-base:
     name: Assemble base in GHCR
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
-    needs: build-base
+    needs: [resolve-version, build-base]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -112,9 +135,9 @@ jobs:
       - name: Resolve tags
         id: tags
         run: |
-          tags="base"
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            tags="$tags base-${GITHUB_REF_NAME#v}"
+          tags="base-${{ needs.resolve-version.outputs.version }}"
+          if [ "${{ needs.resolve-version.outputs.is_latest }}" = "true" ]; then
+            tags="$tags base"
           fi
           echo "list=$tags" >> $GITHUB_OUTPUT
 
@@ -187,8 +210,7 @@ jobs:
 
   build-successor:
     name: Build successor (${{ matrix.platform }})
-    if: always() && (needs.assemble-base.result == 'success' || needs.assemble-base.result == 'skipped')
-    needs: assemble-base
+    needs: [resolve-version, assemble-base]
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -227,17 +249,15 @@ jobs:
           context: .
           file: Dockerfile.successor
           platforms: ${{ matrix.platform }}
-          build-args: COMMIT_SHA=${{ github.sha }}
-          outputs: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && format('type=image,name=ghcr.io/its-me/{0},push-by-digest=true,name-canonical=true,push=true', env.REPOSITORY) || 'type=cacheonly' }}
+          build-args: VERSION=${{ needs.resolve-version.outputs.version }}
+          outputs: type=image,name=ghcr.io/its-me/${{ env.REPOSITORY }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Prepare
-        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         run: |
           platform=${{ matrix.platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
 
       - name: Export digest
-        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         run: |
           mkdir -p /tmp/digests
           touch "/tmp/digests/${DIGEST#sha256:}"
@@ -245,7 +265,6 @@ jobs:
           DIGEST: ${{ steps.build.outputs.digest }}
 
       - name: Upload digest
-        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v7
         with:
           name: successor-digest-${{ env.PLATFORM_PAIR }}
@@ -255,8 +274,7 @@ jobs:
 
   assemble-successor:
     name: Assemble successor in GHCR
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
-    needs: build-successor
+    needs: [resolve-version, build-successor]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -283,9 +301,9 @@ jobs:
       - name: Resolve tags
         id: tags
         run: |
-          tags="successor"
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            tags="$tags successor-${GITHUB_REF_NAME#v}"
+          tags="successor-${{ needs.resolve-version.outputs.version }}"
+          if [ "${{ needs.resolve-version.outputs.is_latest }}" = "true" ]; then
+            tags="$tags successor"
           fi
           echo "list=$tags" >> $GITHUB_OUTPUT
 

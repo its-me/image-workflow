@@ -1,7 +1,7 @@
 FROM ghcr.io/its-me/workflow:base
 
-ARG COMMIT_SHA
-LABEL org.opencontainers.image.version=$COMMIT_SHA
+ARG VERSION
+LABEL org.opencontainers.image.version=$VERSION
 LABEL org.opencontainers.image.source=https://github.com/its-me/image-workflow
 LABEL org.opencontainers.image.title="workflow-successor"
 LABEL org.opencontainers.image.description="Extends workflow-base, demonstrating image inheritance"
