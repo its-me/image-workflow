@@ -65,9 +65,12 @@ jobs:
 
       - name: Resolve tags
         id: tags
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
+          IS_LATEST: ${{ needs.resolve-version.outputs.is_latest }}
         run: |
-          tags="simple-${{ needs.resolve-version.outputs.version }}"
-          if [ "${{ needs.resolve-version.outputs.is_latest }}" = "true" ]; then
+          tags="simple-$VERSION"
+          if [ "$IS_LATEST" = "true" ]; then
             tags="$tags simple"
           fi
           echo "list=$tags" >> $GITHUB_OUTPUT
@@ -83,10 +86,12 @@ jobs:
 
       - name: Tag latest
         if: needs.resolve-version.outputs.is_latest == 'true'
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
           docker buildx imagetools create \
             --tag ghcr.io/its-me/$REPOSITORY:simple \
-            ghcr.io/its-me/$REPOSITORY:simple-${{ needs.resolve-version.outputs.version }}
+            ghcr.io/its-me/$REPOSITORY:simple-$VERSION
 
   push-hub:
     name: Deploy to Docker Hub
@@ -109,10 +114,13 @@ jobs:
           password: ${{ secrets.HUB_TOKEN }}
 
       - name: Deploy
+        env:
+          TAGS: ${{ needs.build.outputs.tags }}
+          HUB_USERNAME: ${{ secrets.HUB_USERNAME }}
         run: |
-          for tag in ${{ needs.build.outputs.tags }}; do
+          for tag in $TAGS; do
             docker buildx imagetools create \
-              --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:$tag \
+              --tag $HUB_USERNAME/$REPOSITORY:$tag \
               ghcr.io/its-me/$REPOSITORY:$tag
           done
 
@@ -140,8 +148,9 @@ jobs:
       - name: Deploy
         env:
           QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
+          TAGS: ${{ needs.build.outputs.tags }}
         run: |
-          for tag in ${{ needs.build.outputs.tags }}; do
+          for tag in $TAGS; do
             docker buildx imagetools create \
               --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:$tag \
               ghcr.io/its-me/$REPOSITORY:$tag

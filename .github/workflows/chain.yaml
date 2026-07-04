@@ -134,16 +134,21 @@ jobs:
 
       - name: Resolve tags
         id: tags
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
+          IS_LATEST: ${{ needs.resolve-version.outputs.is_latest }}
         run: |
-          tags="chain-link-1-${{ needs.resolve-version.outputs.version }}"
-          if [ "${{ needs.resolve-version.outputs.is_latest }}" = "true" ]; then
+          tags="chain-link-1-$VERSION"
+          if [ "$IS_LATEST" = "true" ]; then
             tags="$tags chain-link-1"
           fi
           echo "list=$tags" >> $GITHUB_OUTPUT
 
       - name: Create manifest
+        env:
+          TAGS: ${{ steps.tags.outputs.list }}
         run: |
-          for tag in ${{ steps.tags.outputs.list }}; do
+          for tag in $TAGS; do
             docker buildx imagetools create \
               --tag ghcr.io/its-me/$REPOSITORY:$tag \
               $(printf "ghcr.io/its-me/$REPOSITORY@sha256:%s " $(ls /tmp/digests))
@@ -170,10 +175,13 @@ jobs:
           password: ${{ secrets.HUB_TOKEN }}
 
       - name: Deploy
+        env:
+          TAGS: ${{ needs.assemble-link-1.outputs.tags }}
+          HUB_USERNAME: ${{ secrets.HUB_USERNAME }}
         run: |
-          for tag in ${{ needs.assemble-link-1.outputs.tags }}; do
+          for tag in $TAGS; do
             docker buildx imagetools create \
-              --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:$tag \
+              --tag $HUB_USERNAME/$REPOSITORY:$tag \
               ghcr.io/its-me/$REPOSITORY:$tag
           done
 
@@ -201,8 +209,9 @@ jobs:
       - name: Deploy
         env:
           QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
+          TAGS: ${{ needs.assemble-link-1.outputs.tags }}
         run: |
-          for tag in ${{ needs.assemble-link-1.outputs.tags }}; do
+          for tag in $TAGS; do
             docker buildx imagetools create \
               --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:$tag \
               ghcr.io/its-me/$REPOSITORY:$tag
@@ -300,16 +309,21 @@ jobs:
 
       - name: Resolve tags
         id: tags
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
+          IS_LATEST: ${{ needs.resolve-version.outputs.is_latest }}
         run: |
-          tags="chain-link-2-${{ needs.resolve-version.outputs.version }}"
-          if [ "${{ needs.resolve-version.outputs.is_latest }}" = "true" ]; then
+          tags="chain-link-2-$VERSION"
+          if [ "$IS_LATEST" = "true" ]; then
             tags="$tags chain-link-2"
           fi
           echo "list=$tags" >> $GITHUB_OUTPUT
 
       - name: Create manifest
+        env:
+          TAGS: ${{ steps.tags.outputs.list }}
         run: |
-          for tag in ${{ steps.tags.outputs.list }}; do
+          for tag in $TAGS; do
             docker buildx imagetools create \
               --tag ghcr.io/its-me/$REPOSITORY:$tag \
               $(printf "ghcr.io/its-me/$REPOSITORY@sha256:%s " $(ls /tmp/digests))
@@ -336,10 +350,13 @@ jobs:
           password: ${{ secrets.HUB_TOKEN }}
 
       - name: Deploy
+        env:
+          TAGS: ${{ needs.assemble-link-2.outputs.tags }}
+          HUB_USERNAME: ${{ secrets.HUB_USERNAME }}
         run: |
-          for tag in ${{ needs.assemble-link-2.outputs.tags }}; do
+          for tag in $TAGS; do
             docker buildx imagetools create \
-              --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:$tag \
+              --tag $HUB_USERNAME/$REPOSITORY:$tag \
               ghcr.io/its-me/$REPOSITORY:$tag
           done
 
@@ -367,8 +384,9 @@ jobs:
       - name: Deploy
         env:
           QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
+          TAGS: ${{ needs.assemble-link-2.outputs.tags }}
         run: |
-          for tag in ${{ needs.assemble-link-2.outputs.tags }}; do
+          for tag in $TAGS; do
             docker buildx imagetools create \
               --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:$tag \
               ghcr.io/its-me/$REPOSITORY:$tag
