@@ -15,6 +15,8 @@ jobs:
   update-hub:
     name: Update Docker Hub description
     runs-on: ubuntu-slim
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
 
@@ -40,6 +42,8 @@ jobs:
   update-quay:
     name: Update Quay.io description
     runs-on: ubuntu-slim
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
 
