@@ -1,0 +1,10 @@
+FROM ghcr.io/its-me/workflow:chain-link-1
+
+ARG VERSION
+LABEL org.opencontainers.image.version=$VERSION
+LABEL org.opencontainers.image.source=https://github.com/its-me/image-workflow
+LABEL org.opencontainers.image.title="workflow-chain-link-2"
+LABEL org.opencontainers.image.description="Extends workflow-chain-link-1, second link in a multi-stage image chain"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.authors="Sergey Kanafyev <sergeykanafyev@gmail.com>"
+LABEL org.opencontainers.image.base.name="ghcr.io/its-me/workflow:chain-link-1"

@@ -1,4 +1,4 @@
-name: single-stage
+name: Build and deploy
 
 on:
   push:
@@ -134,9 +134,9 @@ jobs:
       - name: Resolve tags
         id: tags
         run: |
-          tags="single-stage-${{ needs.resolve-version.outputs.version }}"
+          tags="${{ needs.resolve-version.outputs.version }}"
           if [ "${{ needs.resolve-version.outputs.is_latest }}" = "true" ]; then
-            tags="$tags single-stage"
+            tags="$tags latest"
           fi
           echo "list=$tags" >> $GITHUB_OUTPUT
 

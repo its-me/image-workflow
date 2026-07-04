@@ -3,8 +3,8 @@ FROM ghcr.io/its-me/workflow:latest
 ARG VERSION
 LABEL org.opencontainers.image.version=$VERSION
 LABEL org.opencontainers.image.source=https://github.com/its-me/image-workflow
-LABEL org.opencontainers.image.title="workflow-simple"
-LABEL org.opencontainers.image.description="Extends the single-stage workflow image, built for a single platform only"
+LABEL org.opencontainers.image.title="workflow-chain-link-1"
+LABEL org.opencontainers.image.description="Extends the single-stage workflow image, first link in a multi-stage image chain"
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.authors="Sergey Kanafyev <sergeykanafyev@gmail.com>"
 LABEL org.opencontainers.image.base.name="ghcr.io/its-me/workflow:latest"
