@@ -27,5 +27,17 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git tag -a "v$latest" -m "v$latest"
             git push origin "v$latest"
-            gh workflow run build-and-deploy.yaml -f tag="v$latest"
+
+            tag="v$latest"
+
+            gh workflow run single-stage.yaml -f tag="$tag"
+            for i in $(seq 1 10); do
+              run_id=$(gh run list --workflow=single-stage.yaml --event=workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')
+              [ -n "$run_id" ] && break
+              sleep 3
+            done
+            gh run watch "$run_id" --exit-status
+
+            gh workflow run multi-stage.yaml -f tag="$tag"
+            gh workflow run simple.yaml -f tag="$tag"
           fi

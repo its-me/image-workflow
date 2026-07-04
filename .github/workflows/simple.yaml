@@ -1,0 +1,148 @@
+name: simple
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (e.g. v1.2.3)'
+        required: true
+
+env:
+  REPOSITORY: workflow
+
+jobs:
+  resolve-version:
+    name: Resolve version
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+      is_latest: ${{ steps.version.outputs.is_latest }}
+    steps:
+      - name: Resolve version
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            tag="${{ inputs.tag }}"
+            version="${tag#v}"
+          fi
+          highest=$(gh api "repos/${{ github.repository }}/tags" --paginate --jq '.[].name | select(test("^v[0-9]")) | ltrimstr("v")' | sort -V | tail -1)
+          if [ -z "$highest" ] || [ "$(printf '%s\n%s\n' "$highest" "$version" | sort -V | tail -1)" = "$version" ]; then
+            echo "is_latest=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_latest=false" >> $GITHUB_OUTPUT
+          fi
+          echo "value=$version" >> $GITHUB_OUTPUT
+
+  build:
+    name: Build and push to GHCR
+    needs: resolve-version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tags: ${{ steps.tags.outputs.list }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve tags
+        id: tags
+        run: |
+          tags="simple-${{ needs.resolve-version.outputs.version }}"
+          if [ "${{ needs.resolve-version.outputs.is_latest }}" = "true" ]; then
+            tags="$tags simple"
+          fi
+          echo "list=$tags" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.simple
+          push: true
+          build-args: VERSION=${{ needs.resolve-version.outputs.version }}
+          tags: ghcr.io/its-me/${{ env.REPOSITORY }}:simple-${{ needs.resolve-version.outputs.version }}
+
+      - name: Tag latest
+        if: needs.resolve-version.outputs.is_latest == 'true'
+        run: |
+          docker buildx imagetools create \
+            --tag ghcr.io/its-me/$REPOSITORY:simple \
+            ghcr.io/its-me/$REPOSITORY:simple-${{ needs.resolve-version.outputs.version }}
+
+  push-hub:
+    name: Deploy to Docker Hub
+    needs: build
+    runs-on: ubuntu-slim
+    permissions:
+      packages: read
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.HUB_USERNAME }}
+          password: ${{ secrets.HUB_TOKEN }}
+
+      - name: Deploy
+        run: |
+          for tag in ${{ needs.build.outputs.tags }}; do
+            docker buildx imagetools create \
+              --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:$tag \
+              ghcr.io/its-me/$REPOSITORY:$tag
+          done
+
+  push-quay:
+    name: Deploy to Quay.io
+    needs: build
+    runs-on: ubuntu-slim
+    permissions:
+      packages: read
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Quay.io
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_TOKEN }}
+
+      - name: Deploy
+        env:
+          QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
+        run: |
+          for tag in ${{ needs.build.outputs.tags }}; do
+            docker buildx imagetools create \
+              --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:$tag \
+              ghcr.io/its-me/$REPOSITORY:$tag
+          done

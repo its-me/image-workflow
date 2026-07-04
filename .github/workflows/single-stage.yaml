@@ -1,0 +1,208 @@
+name: single-stage
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (e.g. v1.2.3)'
+        required: true
+
+env:
+  REPOSITORY: workflow
+
+jobs:
+  resolve-version:
+    name: Resolve version
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+      is_latest: ${{ steps.version.outputs.is_latest }}
+    steps:
+      - name: Resolve version
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            tag="${{ inputs.tag }}"
+            version="${tag#v}"
+          fi
+          highest=$(gh api "repos/${{ github.repository }}/tags" --paginate --jq '.[].name | select(test("^v[0-9]")) | ltrimstr("v")' | sort -V | tail -1)
+          if [ -z "$highest" ] || [ "$(printf '%s\n%s\n' "$highest" "$version" | sort -V | tail -1)" = "$version" ]; then
+            echo "is_latest=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_latest=false" >> $GITHUB_OUTPUT
+          fi
+          echo "value=$version" >> $GITHUB_OUTPUT
+
+  build:
+    name: Build (${{ matrix.platform }})
+    needs: resolve-version
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - { platform: linux/amd64,   runner: ubuntu-latest,    qemu: false }
+          - { platform: linux/arm64,   runner: ubuntu-24.04-arm, qemu: false }
+          - { platform: linux/arm/v7,  runner: ubuntu-24.04-arm, qemu: true  }
+          - { platform: linux/arm/v6,  runner: ubuntu-24.04-arm, qemu: true  }
+          - { platform: linux/386,     runner: ubuntu-latest,    qemu: true  }
+          - { platform: linux/ppc64le, runner: ubuntu-latest,    qemu: true  }
+          - { platform: linux/s390x,   runner: ubuntu-latest,    qemu: true  }
+          - { platform: linux/riscv64, runner: ubuntu-latest,    qemu: true  }
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up QEMU
+        if: matrix.qemu
+        uses: docker/setup-qemu-action@v4
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare
+        run: |
+          platform=${{ matrix.platform }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          build-args: VERSION=${{ needs.resolve-version.outputs.version }}
+          outputs: type=image,name=ghcr.io/its-me/${{ env.REPOSITORY }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: single-stage-digest-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  assemble:
+    name: Assemble in GHCR
+    needs: [resolve-version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tags: ${{ steps.tags.outputs.list }}
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: /tmp/digests
+          pattern: single-stage-digest-*
+          merge-multiple: true
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Resolve tags
+        id: tags
+        run: |
+          tags="single-stage-${{ needs.resolve-version.outputs.version }}"
+          if [ "${{ needs.resolve-version.outputs.is_latest }}" = "true" ]; then
+            tags="$tags single-stage"
+          fi
+          echo "list=$tags" >> $GITHUB_OUTPUT
+
+      - name: Create manifest
+        run: |
+          for tag in ${{ steps.tags.outputs.list }}; do
+            docker buildx imagetools create \
+              --tag ghcr.io/its-me/$REPOSITORY:$tag \
+              $(printf "ghcr.io/its-me/$REPOSITORY@sha256:%s " $(ls /tmp/digests))
+          done
+
+  push-hub:
+    name: Deploy to Docker Hub
+    needs: assemble
+    runs-on: ubuntu-slim
+    permissions:
+      packages: read
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.HUB_USERNAME }}
+          password: ${{ secrets.HUB_TOKEN }}
+
+      - name: Deploy
+        run: |
+          for tag in ${{ needs.assemble.outputs.tags }}; do
+            docker buildx imagetools create \
+              --tag ${{ secrets.HUB_USERNAME }}/$REPOSITORY:$tag \
+              ghcr.io/its-me/$REPOSITORY:$tag
+          done
+
+  push-quay:
+    name: Deploy to Quay.io
+    needs: assemble
+    runs-on: ubuntu-slim
+    permissions:
+      packages: read
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Quay.io
+        uses: docker/login-action@v4
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_TOKEN }}
+
+      - name: Deploy
+        env:
+          QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
+        run: |
+          for tag in ${{ needs.assemble.outputs.tags }}; do
+            docker buildx imagetools create \
+              --tag quay.io/${QUAY_NAMESPACE%%+*}/$REPOSITORY:$tag \
+              ghcr.io/its-me/$REPOSITORY:$tag
+          done
