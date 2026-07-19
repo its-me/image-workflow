@@ -20,24 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Update description
-        env:
-          HUB_USERNAME: ${{ secrets.HUB_USERNAME }}
-          HUB_PASSWORD: ${{ secrets.HUB_PASSWORD }}
-        run: |
-          token=$(curl -fsSL -X POST "https://hub.docker.com/v2/users/login" \
-            -H "Content-Type: application/json" \
-            -d "{\"username\":\"$HUB_USERNAME\",\"password\":\"$HUB_PASSWORD\"}" \
-            | jq -r '.token')
-          short_description=$(sed -n '1s/^<!-- \(.*\) -->$/\1/p' HUB.md)
-          full_description=$(tail -n +2 HUB.md)
-          curl -fsSL -X PATCH "https://hub.docker.com/v2/repositories/$HUB_USERNAME/$REPOSITORY/" \
-            -H "Authorization: Bearer $token" \
-            -H "Content-Type: application/json" \
-            --data-binary "$(jq -n \
-              --arg description "$short_description" \
-              --arg full_description "$full_description" \
-              '{description: $description, full_description: $full_description}')"
+      - uses: its-me/action.hub.description@v0
+        with:
+          username: ${{ secrets.HUB_USERNAME }}
+          password: ${{ secrets.HUB_PASSWORD }}
+          repository: ${{ env.REPOSITORY }}
 
   update-quay:
     name: Update Quay.io description
@@ -47,15 +34,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Update description
-        env:
-          QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
-          QUAY_API_TOKEN: ${{ secrets.QUAY_API_TOKEN }}
-        run: |
-          curl -fsSL -X PUT "https://quay.io/api/v1/repository/${QUAY_NAMESPACE%%+*}/$REPOSITORY" \
-            -H "Authorization: Bearer $QUAY_API_TOKEN" \
-            -H "Content-Type: application/json" \
-            -H "X-Requested-With: XMLHttpRequest" \
-            --data-binary "$(jq -n \
-              --rawfile description QUAY.md \
-              '{description: $description}')"
+      - uses: its-me/action.quay.description@v0
+        with:
+          namespace: ${{ secrets.QUAY_USERNAME }}
+          api-token: ${{ secrets.QUAY_API_TOKEN }}
+          repository: ${{ env.REPOSITORY }}
