@@ -29,6 +29,14 @@ Template repository demonstrating a multi-arch Docker image CI/CD workflow with 
 | Docker Hub | [hub.docker.com/r/1tsme/workflow](https://hub.docker.com/r/1tsme/workflow) |
 | Quay.io | [quay.io/repository/itsme/workflow](https://quay.io/repository/itsme/workflow) |
 
+## Actions used
+
+| Action | Purpose |
+|---|---|
+| [its-me/action.image.mirror](https://github.com/its-me/action.image.mirror) | Copy image tags from GHCR to Docker Hub/Quay.io |
+| [its-me/action.hub.description](https://github.com/its-me/action.hub.description) | Update the Docker Hub repository description |
+| [its-me/action.quay.description](https://github.com/its-me/action.quay.description) | Update the Quay.io repository description |
+
 ## License
 
 [MIT](LICENSE)
