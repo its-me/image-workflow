@@ -8,16 +8,10 @@ Source: [github.com/its-me/image-workflow](https://github.com/its-me/image-workf
 
 ## Images
 
-| Tag | Description | Dockerfile |
-|---|---|---|
-| `X.Y.Z` | Standalone single-stage image, built from busybox | [Dockerfile](Dockerfile) |
-| `latest` | Latest standalone single-stage image | [Dockerfile](Dockerfile) |
-| `chain-link-1-X.Y.Z` | First link of a multi-stage chain, extends the single-stage image | [Dockerfile.chain-link-1](Dockerfile.chain-link-1) |
-| `chain-link-1` | Latest first-link image | [Dockerfile.chain-link-1](Dockerfile.chain-link-1) |
-| `chain-link-2-X.Y.Z` | Second link, extends `chain-link-1` | [Dockerfile.chain-link-2](Dockerfile.chain-link-2) |
-| `chain-link-2` | Latest second-link image | [Dockerfile.chain-link-2](Dockerfile.chain-link-2) |
-| `simple-X.Y.Z` | Minimal single-platform build, extends the single-stage image | [Dockerfile.simple](Dockerfile.simple) |
-| `simple` | Latest single-platform image | [Dockerfile.simple](Dockerfile.simple) |
+- `X.Y.Z`, `latest` — Standalone single-stage image, built from busybox ([Dockerfile](Dockerfile))
+- `chain-link-1-X.Y.Z`, `chain-link-1` — First link of a multi-stage chain, extends the single-stage image ([Dockerfile.chain-link-1](Dockerfile.chain-link-1))
+- `chain-link-2-X.Y.Z`, `chain-link-2` — Second link, extends `chain-link-1` ([Dockerfile.chain-link-2](Dockerfile.chain-link-2))
+- `simple-X.Y.Z`, `simple` — Minimal single-platform build, extends the single-stage image ([Dockerfile.simple](Dockerfile.simple))
 
 ## Platforms
 
