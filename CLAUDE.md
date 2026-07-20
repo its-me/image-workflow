@@ -9,8 +9,8 @@ Template repository for experimenting with GitHub Actions image build and deploy
 - `Dockerfile.chain-link-2` — extends `chain-link-1`, second link in the chain
 - `Dockerfile.simple` — extends the single-stage image, built for a single platform only, no matrix/digest-assemble steps
 - `HUB.md` — Docker Hub descriptions; first line is `<!-- short description -->`, rest is the full overview (markdown). References `media/chain.svg` and relative Dockerfile links to demonstrate `its-me/action.hub.description`'s `url-completion` input, which is enabled in `update-descriptions.yaml`.
-- `QUAY.md` — Quay.io long description (markdown)
-- `media/chain.svg` — diagram of the single-stage → chain-link-1 → chain-link-2 build chain, embedded in `HUB.md`
+- `QUAY.md` — Quay.io long description (markdown). References `media/chain.svg` and relative Dockerfile links to demonstrate `its-me/action.quay.description`'s `url-completion` input, which is enabled in `update-descriptions.yaml`.
+- `media/chain.svg` — diagram of the single-stage → chain-link-1 → chain-link-2 build chain, embedded in `HUB.md` and `QUAY.md`
 
 All four images share one container repository (`ghcr.io/its-me/workflow`, `1tsme/workflow`, `quay.io/itsme/workflow`), distinguished only by tag prefix.
 

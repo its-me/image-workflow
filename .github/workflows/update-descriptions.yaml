@@ -40,3 +40,4 @@ jobs:
           namespace: ${{ secrets.QUAY_USERNAME }}
           api-token: ${{ secrets.QUAY_API_TOKEN }}
           repository: ${{ env.REPOSITORY }}
+          url-completion: true
