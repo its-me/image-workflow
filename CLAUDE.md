@@ -8,8 +8,8 @@ Template repository for experimenting with GitHub Actions image build and deploy
 - `Dockerfile.chain-link-1` — extends the single-stage image, first link in a multi-stage chain
 - `Dockerfile.chain-link-2` — extends `chain-link-1`, second link in the chain
 - `Dockerfile.simple` — extends the single-stage image, built for a single platform only, no matrix/digest-assemble steps
-- `HUB.md` — Docker Hub descriptions; first line is `<!-- short description -->`, rest is the full overview (markdown). References `media/chain.svg` and relative Dockerfile links to demonstrate `its-me/action.hub.description`'s `url-completion` input, which is enabled in `update-descriptions.yaml`.
-- `QUAY.md` — Quay.io long description (markdown). References `media/chain.svg` and relative Dockerfile links to demonstrate `its-me/action.quay.description`'s `url-completion` input, which is enabled in `update-descriptions.yaml`.
+- `HUB.md` — Docker Hub descriptions; first line is `<!-- short description -->`, rest is the full overview (markdown). References `media/chain.svg` and relative Dockerfile links to demonstrate `its-me/action.hub.description`'s `url-completion` input, which is enabled in `descriptions.yaml`.
+- `QUAY.md` — Quay.io long description (markdown). References `media/chain.svg` and relative Dockerfile links to demonstrate `its-me/action.quay.description`'s `url-completion` input, which is enabled in `descriptions.yaml`.
 - `media/chain.svg` — diagram of the single-stage → chain-link-1 → chain-link-2 build chain, embedded in `HUB.md` and `QUAY.md`
 
 All four images share one container repository (`ghcr.io/its-me/workflow`, `1tsme/workflow`, `quay.io/itsme/workflow`), distinguished only by tag prefix.
@@ -50,12 +50,12 @@ The simplest flavor: a single job, no matrix, no QEMU, no digest-assemble dance 
 
 **Tags:** `simple-<version>` always; additionally the bare `simple` tag when the version is the highest known `v*` tag.
 
-### update-descriptions
+### descriptions (Repository Descriptions Update)
 
 Triggers on pushes to `main` that touch `HUB.md` or `QUAY.md`, and on manual dispatch. Runs on `ubuntu-slim`.
 
-- `update-hub` — extracts short description from the first-line comment of `HUB.md`, sends full content as overview via Docker Hub REST API
-- `update-quay` — sends full content of `QUAY.md` as description via Quay.io REST API
+- `hub` — extracts short description from the first-line comment of `HUB.md`, sends full content as overview via Docker Hub REST API
+- `quay` — sends full content of `QUAY.md` as description via Quay.io REST API
 
 ### zizmor
 
@@ -80,9 +80,9 @@ Lints this repository's own GitHub Actions workflows for security issues using [
 
 | Secret | Used by | Purpose |
 |---|---|---|
-| `HUB_USERNAME` | build workflows, update-descriptions | Docker Hub username |
+| `HUB_USERNAME` | build workflows, descriptions | Docker Hub username |
 | `HUB_TOKEN` | build-and-deploy, chain, simple | Docker Hub access token for registry push |
-| `HUB_PASSWORD` | update-descriptions | Docker Hub account password for REST API login |
-| `QUAY_USERNAME` | build workflows, update-descriptions | Quay.io robot account username |
+| `HUB_PASSWORD` | descriptions | Docker Hub account password for REST API login |
+| `QUAY_USERNAME` | build workflows, descriptions | Quay.io robot account username |
 | `QUAY_TOKEN` | build-and-deploy, chain, simple | Quay.io robot account token for registry push |
-| `QUAY_API_TOKEN` | update-descriptions | Quay.io OAuth application token for REST API |
+| `QUAY_API_TOKEN` | descriptions | Quay.io OAuth application token for REST API |

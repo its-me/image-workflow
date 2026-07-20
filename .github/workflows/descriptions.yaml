@@ -1,4 +1,4 @@
-name: Update descriptions
+name: Repository Descriptions Update
 
 on:
   push:
@@ -12,7 +12,7 @@ env:
   REPOSITORY: workflow
 
 jobs:
-  update-hub:
+  hub:
     name: Update Docker Hub description
     runs-on: ubuntu-slim
     permissions:
@@ -27,7 +27,7 @@ jobs:
           repository: ${{ env.REPOSITORY }}
           url-completion: true
 
-  update-quay:
+  quay:
     name: Update Quay.io description
     runs-on: ubuntu-slim
     permissions:
