@@ -22,7 +22,7 @@ None of the build workflows trigger on ordinary pushes or PRs — every build is
 
 ## Workflows
 
-### build-and-deploy
+### workflow (Build and deploy)
 
 The foundational workflow. Builds `Dockerfile` (single Dockerfile, no inheritance), matrix over 8 platforms, push-by-digest to GHCR, assemble into a multi-arch manifest, then copy to Docker Hub and Quay.io. Mirrors the structure used in `image.zizmor`.
 
@@ -30,7 +30,7 @@ The foundational workflow. Builds `Dockerfile` (single Dockerfile, no inheritanc
 
 ### chain
 
-Demonstrates a multi-stage image chain built on top of `build-and-deploy`'s output.
+Demonstrates a multi-stage image chain built on top of `workflow`'s output.
 
 **Job chain:**
 1. `build-link-1` (matrix: 8 platforms) — builds `Dockerfile.chain-link-1` (`FROM ghcr.io/its-me/workflow:latest`), pushes by digest to GHCR
@@ -42,7 +42,7 @@ Demonstrates a multi-stage image chain built on top of `build-and-deploy`'s outp
 
 **Tags:** `chain-link-1-<version>` / `chain-link-2-<version>` always; additionally the bare `chain-link-1` / `chain-link-2` tag when the version is the highest known `v*` tag.
 
-**Dependency note:** since `Dockerfile.chain-link-1` builds `FROM ghcr.io/its-me/workflow:latest`, this workflow assumes `build-and-deploy` has already published that tag for the same (or an earlier) version — `check-release.yaml` dispatches both without waiting, so a very first release could race; not an issue on subsequent releases since `latest` already exists.
+**Dependency note:** since `Dockerfile.chain-link-1` builds `FROM ghcr.io/its-me/workflow:latest`, this workflow assumes `workflow` has already published that tag for the same (or an earlier) version — `check-release.yaml` dispatches both without waiting, so a very first release could race; not an issue on subsequent releases since `latest` already exists.
 
 ### simple
 
@@ -61,11 +61,11 @@ Triggers on pushes to `main` that touch `HUB.md` or `QUAY.md`, and on manual dis
 
 Lints this repository's own GitHub Actions workflows for security issues using [its-me/action.zizmor](https://github.com/its-me/action.zizmor). Triggers on every push and PR, plus manual dispatch.
 
-## Common patterns across build-and-deploy, chain, and simple
+## Common patterns across workflow, chain, and simple
 
 - **Version resolution:** a `resolve-version` job derives the version from the pushed tag (`refs/tags/vX.Y.Z`) or the `workflow_dispatch` `tag` input, then computes `is_latest` by comparing against the highest existing `v*` tag via `sort -V`.
 - **Runners:** matrix build jobs use `ubuntu-latest` or `ubuntu-24.04-arm` (native) with QEMU for the rest; assemble jobs use `ubuntu-latest` (need Docker daemon for `setup-buildx-action`); deploy jobs use `ubuntu-slim` (`imagetools create` works via registry API without a daemon).
-- **Platforms** (build-and-deploy, chain): `linux/amd64`, `linux/arm64`, `linux/arm/v7`, `linux/arm/v6`, `linux/386`, `linux/ppc64le`, `linux/s390x`, `linux/riscv64`.
+- **Platforms** (workflow, chain): `linux/amd64`, `linux/arm64`, `linux/arm/v7`, `linux/arm/v6`, `linux/386`, `linux/ppc64le`, `linux/s390x`, `linux/riscv64`.
 - **OCI labels:** `version` (the resolved release version), `source`, `title`, `description`, `licenses`, `authors`. Images that extend another image also carry `base.name`.
 
 ## Registries
@@ -81,8 +81,8 @@ Lints this repository's own GitHub Actions workflows for security issues using [
 | Secret | Used by | Purpose |
 |---|---|---|
 | `HUB_USERNAME` | build workflows, descriptions | Docker Hub username |
-| `HUB_TOKEN` | build-and-deploy, chain, simple | Docker Hub access token for registry push |
+| `HUB_TOKEN` | workflow, chain, simple | Docker Hub access token for registry push |
 | `HUB_PASSWORD` | descriptions | Docker Hub account password for REST API login |
 | `QUAY_USERNAME` | build workflows, descriptions | Quay.io robot account username |
-| `QUAY_TOKEN` | build-and-deploy, chain, simple | Quay.io robot account token for registry push |
+| `QUAY_TOKEN` | workflow, chain, simple | Quay.io robot account token for registry push |
 | `QUAY_API_TOKEN` | descriptions | Quay.io OAuth application token for REST API |

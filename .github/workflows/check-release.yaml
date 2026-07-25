@@ -30,7 +30,7 @@ jobs:
 
             tag="v$latest"
 
-            gh workflow run build-and-deploy.yaml -f tag="$tag"
+            gh workflow run workflow.yaml -f tag="$tag"
             gh workflow run chain.yaml -f tag="$tag"
             gh workflow run simple.yaml -f tag="$tag"
           fi
