@@ -35,9 +35,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: its-me/action.quay.description@v1
+      - uses: its-me/action.quay.description@v2
         with:
-          namespace: ${{ secrets.QUAY_USERNAME }}
+          username: ${{ secrets.QUAY_USERNAME }}
           api-token: ${{ secrets.QUAY_API_TOKEN }}
           repository: ${{ env.REPOSITORY }}
           url-completion: true
