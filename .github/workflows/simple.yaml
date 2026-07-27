@@ -100,10 +100,9 @@ jobs:
     permissions:
       packages: read
     steps:
-      - uses: its-me/action.image.mirror@v0
+      - uses: its-me/action.image.mirror@v1
         with:
           source: ghcr.io/its-me/${{ env.REPOSITORY }}
-          source-registry: ghcr.io
           source-username: ${{ github.actor }}
           source-password: ${{ secrets.GITHUB_TOKEN }}
           destination: ${{ secrets.HUB_USERNAME }}/${{ env.REPOSITORY }}
@@ -124,14 +123,12 @@ jobs:
           QUAY_NAMESPACE: ${{ secrets.QUAY_USERNAME }}
         run: echo "value=${QUAY_NAMESPACE%%+*}" >> "$GITHUB_OUTPUT"
 
-      - uses: its-me/action.image.mirror@v0
+      - uses: its-me/action.image.mirror@v1
         with:
           source: ghcr.io/its-me/${{ env.REPOSITORY }}
-          source-registry: ghcr.io
           source-username: ${{ github.actor }}
           source-password: ${{ secrets.GITHUB_TOKEN }}
           destination: quay.io/${{ steps.namespace.outputs.value }}/${{ env.REPOSITORY }}
-          destination-registry: quay.io
           destination-username: ${{ secrets.QUAY_USERNAME }}
           destination-password: ${{ secrets.QUAY_TOKEN }}
           tags: ${{ needs.build.outputs.tags }}
