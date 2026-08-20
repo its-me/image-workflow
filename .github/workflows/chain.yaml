@@ -1,4 +1,4 @@
-name: Chain build and deploy
+name: Chain release
 
 on:
   push:

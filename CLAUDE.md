@@ -22,7 +22,7 @@ None of the build workflows trigger on ordinary pushes or PRs — every build is
 
 ## Workflows
 
-### workflow (Build and deploy)
+### workflow (Release)
 
 The foundational workflow. Builds `Dockerfile` (single Dockerfile, no inheritance), matrix over 8 platforms, push-by-digest to GHCR, assemble into a multi-arch manifest, then copy to Docker Hub and Quay.io. Mirrors the structure used in `image.zizmor`.
 

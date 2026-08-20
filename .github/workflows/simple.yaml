@@ -1,4 +1,4 @@
-name: Simple build and deploy
+name: Simple release
 
 on:
   push:
