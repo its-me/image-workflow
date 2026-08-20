@@ -15,13 +15,14 @@ env:
 
 jobs:
   resolve-version:
-    name: Resolve version
-    runs-on: ubuntu-slim
+    name: Resolve version and platforms
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     outputs:
       version: ${{ steps.version.outputs.value }}
       is_latest: ${{ steps.version.outputs.is_latest }}
+      base_matrix: ${{ steps.platforms.outputs.base_matrix }}
     steps:
       - name: Resolve version
         id: version
@@ -42,6 +43,34 @@ jobs:
           fi
           echo "value=$version" >> $GITHUB_OUTPUT
 
+      # busybox:latest's published platforms can shift over time, so the
+      # matrix is resolved from the upstream manifest instead of hardcoded.
+      # Both chain links reuse this same matrix rather than re-inspecting
+      # their own (internally-published) parent image, since their platform
+      # coverage can never exceed what the base link itself was built for.
+      - name: Resolve platforms
+        id: platforms
+        run: |
+          set -eu
+          known='[
+            {"platform":"linux/amd64",   "runner":"ubuntu-latest",    "qemu":false, "arch":"amd64",   "variant":null},
+            {"platform":"linux/arm64",   "runner":"ubuntu-24.04-arm", "qemu":false, "arch":"arm64",   "variant":"v8"},
+            {"platform":"linux/arm/v7",  "runner":"ubuntu-24.04-arm", "qemu":true,  "arch":"arm",     "variant":"v7"},
+            {"platform":"linux/arm/v6",  "runner":"ubuntu-24.04-arm", "qemu":true,  "arch":"arm",     "variant":"v6"},
+            {"platform":"linux/386",     "runner":"ubuntu-latest",    "qemu":true,  "arch":"386",     "variant":null},
+            {"platform":"linux/ppc64le", "runner":"ubuntu-latest",    "qemu":true,  "arch":"ppc64le", "variant":null},
+            {"platform":"linux/s390x",   "runner":"ubuntu-latest",    "qemu":true,  "arch":"s390x",   "variant":null},
+            {"platform":"linux/riscv64", "runner":"ubuntu-latest",    "qemu":true,  "arch":"riscv64", "variant":null}
+          ]'
+
+          available=$(docker buildx imagetools inspect "busybox:latest" --raw \
+            | jq -c '[.manifests[].platform | select(.os == "linux") | {arch: .architecture, variant: (.variant // null)}]')
+
+          matrix=$(jq -nc --argjson known "$known" --argjson avail "$available" \
+            '{include: [$known[] | select(. as $k | $avail | any(.arch == $k.arch and .variant == $k.variant)) | {platform, runner, qemu}]}')
+
+          echo "base_matrix=$matrix" >> "$GITHUB_OUTPUT"
+
   build-link-1:
     name: Build link 1 (${{ matrix.platform }})
     needs: resolve-version
@@ -50,16 +79,7 @@ jobs:
       contents: read
       packages: write
     strategy:
-      matrix:
-        include:
-          - { platform: linux/amd64,   runner: ubuntu-latest,    qemu: false }
-          - { platform: linux/arm64,   runner: ubuntu-24.04-arm, qemu: false }
-          - { platform: linux/arm/v7,  runner: ubuntu-24.04-arm, qemu: true  }
-          - { platform: linux/arm/v6,  runner: ubuntu-24.04-arm, qemu: true  }
-          - { platform: linux/386,     runner: ubuntu-latest,    qemu: true  }
-          - { platform: linux/ppc64le, runner: ubuntu-latest,    qemu: true  }
-          - { platform: linux/s390x,   runner: ubuntu-latest,    qemu: true  }
-          - { platform: linux/riscv64, runner: ubuntu-latest,    qemu: true  }
+      matrix: ${{ fromJson(needs.resolve-version.outputs.base_matrix) }}
     steps:
       - uses: actions/checkout@v7
 
@@ -87,9 +107,10 @@ jobs:
           outputs: type=image,name=ghcr.io/its-me/${{ env.REPOSITORY }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Prepare
+        env:
+          PLATFORM: ${{ matrix.platform }}
         run: |
-          platform=${{ matrix.platform }}
-          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+          echo "PLATFORM_PAIR=${PLATFORM//\//-}" >> $GITHUB_ENV
 
       - name: Export digest
         run: |
@@ -202,16 +223,7 @@ jobs:
       contents: read
       packages: write
     strategy:
-      matrix:
-        include:
-          - { platform: linux/amd64,   runner: ubuntu-latest,    qemu: false }
-          - { platform: linux/arm64,   runner: ubuntu-24.04-arm, qemu: false }
-          - { platform: linux/arm/v7,  runner: ubuntu-24.04-arm, qemu: true  }
-          - { platform: linux/arm/v6,  runner: ubuntu-24.04-arm, qemu: true  }
-          - { platform: linux/386,     runner: ubuntu-latest,    qemu: true  }
-          - { platform: linux/ppc64le, runner: ubuntu-latest,    qemu: true  }
-          - { platform: linux/s390x,   runner: ubuntu-latest,    qemu: true  }
-          - { platform: linux/riscv64, runner: ubuntu-latest,    qemu: true  }
+      matrix: ${{ fromJson(needs.resolve-version.outputs.base_matrix) }}
     steps:
       - uses: actions/checkout@v7
 
@@ -239,9 +251,10 @@ jobs:
           outputs: type=image,name=ghcr.io/its-me/${{ env.REPOSITORY }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Prepare
+        env:
+          PLATFORM: ${{ matrix.platform }}
         run: |
-          platform=${{ matrix.platform }}
-          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+          echo "PLATFORM_PAIR=${PLATFORM//\//-}" >> $GITHUB_ENV
 
       - name: Export digest
         run: |

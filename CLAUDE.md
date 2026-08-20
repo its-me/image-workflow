@@ -64,8 +64,8 @@ Lints this repository's own GitHub Actions workflows for security issues using [
 ## Common patterns across workflow, chain, and simple
 
 - **Version resolution:** a `resolve-version` job derives the version from the pushed tag (`refs/tags/vX.Y.Z`) or the `workflow_dispatch` `tag` input, then computes `is_latest` by comparing against the highest existing `v*` tag via `sort -V`.
-- **Runners:** matrix build jobs use `ubuntu-latest` or `ubuntu-24.04-arm` (native) with QEMU for the rest; assemble jobs use `ubuntu-latest` (need Docker daemon for `setup-buildx-action`); deploy jobs use `ubuntu-slim` (`imagetools create` works via registry API without a daemon).
-- **Platforms** (workflow, chain): `linux/amd64`, `linux/arm64`, `linux/arm/v7`, `linux/arm/v6`, `linux/386`, `linux/ppc64le`, `linux/s390x`, `linux/riscv64`.
+- **Runners:** `resolve-version` (workflow, chain) uses `ubuntu-latest`, since resolving the platform matrix needs `docker buildx imagetools inspect`; matrix build jobs use `ubuntu-latest` or `ubuntu-24.04-arm` (native) with QEMU for the rest; assemble jobs use `ubuntu-latest` (need Docker daemon for `setup-buildx-action`); deploy jobs use `ubuntu-slim` (`imagetools create` works via registry API without a daemon).
+- **Platforms** (workflow, chain): resolved at run time from `busybox:latest`'s upstream manifest against a known list of `linux/amd64`, `linux/arm64`, `linux/arm/v7`, `linux/arm/v6`, `linux/386`, `linux/ppc64le`, `linux/s390x`, `linux/riscv64` — mirrors the dynamic platform-matrix pattern used in `image.debian`/`image.alpine`. In `chain`, both `build-link-1` and `build-link-2` reuse the single matrix resolved in `resolve-version` rather than re-inspecting their own (internally-published) parent image.
 - **OCI labels:** `version` (the resolved release version), `source`, `title`, `description`, `licenses`, `authors`. Images that extend another image also carry `base.name`.
 
 ## Registries
