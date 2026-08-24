@@ -76,6 +76,7 @@ jobs:
       contents: read
       packages: write
     strategy:
+      fail-fast: false
       matrix: ${{ fromJson(needs.resolve-version.outputs.base_matrix) }}
     steps:
       - uses: actions/checkout@v7
