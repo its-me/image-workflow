@@ -4,7 +4,7 @@ Template repository demonstrating a multi-arch Docker image CI/CD workflow with 
 
 ## Workflow
 
-- A daily check for new releases of [its-me/dummy.releases](https://github.com/its-me/dummy.releases) tags this repo and triggers all builds below
+- A daily check triggers all builds below for every release of [its-me/dummy.releases](https://github.com/its-me/dummy.releases) not yet tagged in this repo; the tag is created once the release succeeds (also for manual runs)
 - Every build is tied to a `v*` semver tag (or a manual dispatch naming one) — no build-only/test runs on ordinary pushes or PRs
 - `workflow` and `chain` support 8 platforms: `linux/amd64`, `linux/arm64`, `linux/arm/v7`, `linux/arm/v6`, `linux/386`, `linux/ppc64le`, `linux/s390x`, `linux/riscv64`; `simple` supports `linux/amd64` only
 

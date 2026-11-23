@@ -7,30 +7,42 @@ on:
 
 jobs:
   check:
-    name: Check and tag new release
+    name: Check for missed releases
     runs-on: ubuntu-slim
     permissions:
-      contents: write
+      contents: read
       actions: write
     steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-tags: true
-
-      - name: Check and tag new release
+      # Dispatches all build workflows for every stable upstream release that
+      # has no tag in this repository yet. Only versions at or above the oldest
+      # existing tag are considered, so ancient upstream history is not built.
+      # workflow.yaml creates the repository tag once it succeeds, so a failed
+      # release is retried on the next run.
+      - name: Dispatch missed releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          latest=$(gh api repos/its-me/dummy.releases/releases/latest --jq '.tag_name | ltrimstr("v")')
-          if ! git ls-remote --exit-code origin "refs/tags/v$latest"; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git tag -a "v$latest" -m "v$latest"
-            git push origin "v$latest"
+          set -euo pipefail
+          existing=$(gh api "repos/$GH_REPO/tags" --paginate --jq '.[].name')
+          upstream=$(gh api repos/its-me/dummy.releases/releases --paginate \
+            --jq '.[] | select((.draft or .prerelease) | not) | .tag_name' \
+            | grep -E '^v[0-9]+(\.[0-9]+)*$' | sort -V || true)
+          floor=$(grep -E '^v[0-9]+(\.[0-9]+)*$' <<<"$existing" | sort -V | head -1 || true)
 
-            tag="v$latest"
+          if [ -z "$floor" ]; then
+            upstream=$(tail -1 <<<"$upstream")
+          fi
 
+          for tag in $upstream; do
+            if [ -n "$floor" ] && [ "$(printf '%s\n%s\n' "$floor" "$tag" | sort -V | head -1)" != "$floor" ]; then
+              continue
+            fi
+            if grep -qxF "$tag" <<<"$existing"; then
+              continue
+            fi
+            echo "Dispatching release for $tag"
             gh workflow run workflow.yaml -f tag="$tag"
             gh workflow run chain.yaml -f tag="$tag"
             gh workflow run simple.yaml -f tag="$tag"
-          fi
+          done
