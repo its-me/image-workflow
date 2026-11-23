@@ -1,4 +1,5 @@
 name: Simple release
+run-name: ${{ github.workflow }} ${{ inputs.tag || github.ref_name }}
 
 on:
   push:
@@ -9,6 +10,10 @@ on:
       tag:
         description: 'Tag to build (e.g. v1.2.3)'
         required: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 env:
   REPOSITORY: workflow
@@ -34,7 +39,14 @@ jobs:
           else
             version="${INPUT_TAG#v}"
           fi
-          highest=$(gh api "repos/${{ github.repository }}/tags" --paginate --jq '.[].name | select(test("^v[0-9]")) | ltrimstr("v")' | sort -V | tail -1)
+          if ! [[ "$version" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
+            echo "::error::Invalid version: $version"
+            exit 1
+          fi
+          # Compare against upstream stable releases rather than this repo's tags:
+          # several releases can run concurrently and tags are only created once
+          # a release succeeds.
+          highest=$(gh api repos/its-me/dummy.releases/releases --paginate --jq '.[] | select((.draft or .prerelease) | not) | .tag_name | select(test("^v[0-9]+(\\.[0-9]+)*$")) | ltrimstr("v")' | sort -V | tail -1)
           if [ -z "$highest" ] || [ "$(printf '%s\n%s\n' "$highest" "$version" | sort -V | tail -1)" = "$version" ]; then
             echo "is_latest=true" >> $GITHUB_OUTPUT
           else

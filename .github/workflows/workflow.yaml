@@ -1,4 +1,5 @@
 name: Release
+run-name: ${{ github.workflow }} ${{ inputs.tag || github.ref_name }}
 
 on:
   push:
@@ -9,6 +10,10 @@ on:
       tag:
         description: 'Tag to build (e.g. v1.2.3)'
         required: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 env:
   REPOSITORY: workflow
@@ -35,7 +40,14 @@ jobs:
           else
             version="${INPUT_TAG#v}"
           fi
-          highest=$(gh api "repos/${{ github.repository }}/tags" --paginate --jq '.[].name | select(test("^v[0-9]")) | ltrimstr("v")' | sort -V | tail -1)
+          if ! [[ "$version" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
+            echo "::error::Invalid version: $version"
+            exit 1
+          fi
+          # Compare against upstream stable releases rather than this repo's tags:
+          # several releases can run concurrently and tags are only created once
+          # a release succeeds.
+          highest=$(gh api repos/its-me/dummy.releases/releases --paginate --jq '.[] | select((.draft or .prerelease) | not) | .tag_name | select(test("^v[0-9]+(\\.[0-9]+)*$")) | ltrimstr("v")' | sort -V | tail -1)
           if [ -z "$highest" ] || [ "$(printf '%s\n%s\n' "$highest" "$version" | sort -V | tail -1)" = "$version" ]; then
             echo "is_latest=true" >> $GITHUB_OUTPUT
           else
@@ -211,3 +223,32 @@ jobs:
           destination-username: ${{ secrets.QUAY_USERNAME }}
           destination-password: ${{ secrets.QUAY_TOKEN }}
           tags: ${{ needs.assemble.outputs.tags }}
+
+  # Only this foundational workflow creates the repository tag, so the tag
+  # means "the base image for this version is released". check-release keeps
+  # re-dispatching all three workflows until it exists.
+  tag:
+    name: Create repository tag
+    needs: [resolve-version, push-hub, push-quay]
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-slim
+    permissions:
+      contents: write
+    steps:
+      # Created with GITHUB_TOKEN, so the tag push does not re-trigger the build workflows.
+      - name: Create tag if missing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: v${{ needs.resolve-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if gh api "repos/$GH_REPO/git/ref/tags/$TAG" --silent 2>/dev/null; then
+            echo "Tag $TAG already exists"
+            exit 0
+          fi
+          sha=$(gh api "repos/$GH_REPO/git/tags" \
+            -f tag="$TAG" -f message="$TAG" -f object="$GITHUB_SHA" -f type=commit \
+            --jq .sha)
+          gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$sha" --silent
+          echo "Created tag $TAG at $GITHUB_SHA"
